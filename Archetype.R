@@ -8,19 +8,19 @@ archetype <- function(SAPCA,
 	# The number of dimensions that you care about the loadings for reconstruction
 	# The cluster to use to create archetype
 	if (is.numeric(cluster)){
-		SUB <- SAPCA$clusters$classification==cluster
+		SUB <- SAPCA$seq.space.clusters$classification==cluster
 	}else{
 		SUB <- cluster
 	}
 
 	# The properties of the available residues
 	# The PCA loadings for each residue property
-	res.prop <- SAPCA$SARP$res.prop[1:(nrow(SAPCA$SARP$res.prop)-2),] # remove X and gap as options 
-	arc.load <- SAPCA$PCA$rotation[,1:dims]
-	seq.len  <- SAPCA$SARP$seq.len
+	res.prop <- SAPCA$numerical.alignment$res.prop[1:(nrow(SAPCA$numerical.alignment$res.prop)-2),] # remove X and gap as options 
+	arc.load <- SAPCA$seq.space.PCA$rotation[,1:dims]
+	aln.len  <- SAPCA$numerical.alignment$aln.len
 
 	# Gaps preference for subset
-	consensus.gaps <- colMeans(subset(SAPCA$SARP$MSA.num.stack$NOTGAP, subset=SUB))
+	consensus.gaps <- colMeans(subset(SAPCA$numerical.alignment$MSA.num.stack$NOTGAP, subset=SUB))
 
 
 	######################
@@ -38,13 +38,13 @@ archetype <- function(SAPCA,
 	######################
 
 	# Average residue properties of chosen subset
-	arc.prop.num <- array(dim 	   = c(seq.len, 
+	arc.prop.num <- array(dim 	   = c(aln.len, 
 	                                   length(res.props)),
 	                      dimnames = list(NULL,
 	                                      res.props))
 
 	for (p in 1:length(res.props)) {
-	  arc.prop.num[,p] <- colMeans(subset(SAPCA$SARP$MSA.num.stack[[p]],subset=SUB), na.rm=TRUE)
+	  arc.prop.num[,p] <- colMeans(subset(SAPCA$numerical.alignment$MSA.num.stack[[p]],subset=SUB), na.rm=TRUE)
 	}
 
 	# is this the correct thing to be scaling? do I need to insert the typscaling step in the middle somewhere????????????????????????????
@@ -61,7 +61,7 @@ archetype <- function(SAPCA,
 	# Positivised loadings for each property, summed for the number of PCA dimensions of interest
 	arc.load.sum <- matrix(rowSums(sqrt(arc.load^2)),
 						   nrow     = 194,
-						   dimnames = list(1:seq.len,
+						   dimnames = list(1:aln.len,
 										   res.props))
 
 
@@ -77,20 +77,20 @@ archetype <- function(SAPCA,
 	# To choose the most apporpriate residue for each sequence archetype position we must find the distance of each position to each possible residue and identify the closest. PCA loading is used to search a spheroid, rather than spheerw 
 
 	res.dist           <- array(dim=c(length(res.avail),
-	                                   seq.len))
+	                                   aln.len))
 	rownames(res.dist) <- res.avail
 	res.dist.load      <- res.dist # make empty copy
 
 	# Distance is sqrt of all (arcproperty - resproperty)^2
 	# Which residue is closest in a sphere around arcproperties
-	for (x in 1:seq.len) {
+	for (x in 1:aln.len) {
 	  temp.dis     <- t(arc.prop.scale[x,] - t(res.prop.scale))     # distance in each dimension
 	  res.dist[,x] <- as.matrix(sqrt(rowSums(temp.dis^2,na.rm=1))) # root sum of squares for overall distance
 	}
 
 	# Loading-weighted distance is sqrt of all arcloading*(archpropery - resproperty)^2
 	# Which residue is closest in a ovoid (determined by loadings) around arcproperties
-	for (x in 1:seq.len) {
+	for (x in 1:aln.len) {
 	  temp.dis          <- t(arc.prop.scale[x,] - t(res.prop.scale))        # distance in each dimension
 	  temp.load         <- t(t(temp.dis) * sqrt(arc.load.sum[x,]))         # distances scaled by rooted loading weight
 	  res.dist.load[,x] <- as.matrix(sqrt((rowSums(temp.load^2,na.rm=1)))) # root sum of squares
@@ -105,7 +105,7 @@ archetype <- function(SAPCA,
 	# ignore those which should be gaps
 
 	arc.seq.gapped <- NULL
-	for (x in 1:seq.len) {
+	for (x in 1:aln.len) {
 	  arc.seq.gapped[x] <- names(which.min(res.dist.load[,x]))
 	}
 	arc.seq.gapped[consensus.gaps<=0.5] <- "-"
@@ -124,7 +124,7 @@ archetype <- function(SAPCA,
 	#############
 
 	# Consensus sequence for comparison
-	con.seq.gapped <- seqinr::consensus(subset(SAPCA$SARP$MSA, subset=SUB))
+	con.seq.gapped <- seqinr::consensus(subset(SAPCA$numerical.alignment$MSA, subset=SUB))
 	con.seq        <- paste(grep("[^-]",(con.seq.gapped),value=TRUE),collapse="")
 
 	##########
@@ -134,11 +134,13 @@ archetype <- function(SAPCA,
 	# Generate output object
 	list(arc.seq          = arc.seq,
 		 arc.seq.gapped   = arc.seq.gapped,
-		 arc.num          = arc.prop.num,
+		 arc.prop.num     = arc.prop.num,
 		 arc.load         = arc.load,
 		 con.seq          = con.seq,
 		 con.seq.gapped   = con.seq.gapped,
-		 SAPCA            = SAPCA
+		 call = list(SAPCA   = SAPCA,
+		 			 dims    = dims,
+		 			 cluster = cluster)
 		)
 }
 

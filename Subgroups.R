@@ -31,7 +31,7 @@ subPCA_MSA <- function(SAPCA,
   #################
   
   # Define subset for graph
-  SUB = SAPCA$clusters$classification==cluster
+  SUB = SAPCA$seq.space.clusters$classification==cluster
         #labels$M.AA.type.pc10.8Gs==1|2|3
 
   ###########################
@@ -39,7 +39,7 @@ subPCA_MSA <- function(SAPCA,
   ###########################
   
   # Create subset of data and PCA with no extra scaling
-  subPCA  <- prcomp(data.frame(subset(SAPCA$SARP$MSA.scale.wide,SUB)))                       
+  subPCA  <- prcomp(data.frame(subset(SAPCA$numerical.alignment$MSA.scale.wide, subset = SUB)))                       
   
   ################################
   # Finding model-based clusters #
@@ -51,16 +51,31 @@ subPCA_MSA <- function(SAPCA,
   # Models - http://finzi.psych.upenn.edu/R/library/mclust/html/mclustModelNames.html
   
   # Using Mclust on PCA data
-  M <- mclust::Mclust(subPCA$x[,1:clusterPCs],         # which PCs to use to find clusters
-                      prior = priorControl(),       # starting values for BIC iterations
-                      G = clusters)                 # number of possible clusters to assess
-  M$call<-NULL
+  clusters.raw <- mclust::Mclust(subPCA$x[,1:clusterPCs],         # which PCs to use to find clusters
+                                 prior = priorControl(),          # starting values for BIC iterations
+                                 G     = clusters)                # number of possible clusters to assess
+
+  clusters.min                <- clusters.raw
+  clusters.min$classification <- NULL
+  clusters.raw$G              <- NULL
+  clusters.raw$z              <- NULL
+  clusters.raw$call           <- NULL
+
+  seq.space.subclusters <- list(classification   = clusters.raw$classification
+                                optimal          = clusters.raw$G
+                                checked          = clusters
+                                likelihoods      = clusters.raw$z
+                                other            = clusters.min)
+
   
   ##########
   # Output #
   ##########
   
-  list(PCA      = subPCA,
-       clusters = M, 
-       SAPCA    = SAPCA)
+  list(seq.space.cluster.PCA = subPCA,
+       seq.space.subclusters = seq.space.subclusters, 
+       call                  = (SAPCA      = SAPCA,
+                                cluster    = cluster,
+                                clusterPCs = clusterPCs,
+                                clusters   = clusters)
 }
