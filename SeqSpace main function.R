@@ -25,13 +25,12 @@
 # Setup #
 #########
 
-library("rgl")
-library("rglwidget")
-library("ape")
-library("mclust")
-library("ggplot2")
-library("tidyr")
-library("seqinr")
+#library("rgl")
+#library("rglwidget")
+#library("ape")
+#library("ggplot2")
+#library("tidyr")
+#library("seqinr")
 
 
 PCA_MSA <- function(MSA,
@@ -39,24 +38,35 @@ PCA_MSA <- function(MSA,
                     cys        = TRUE,
                     clusterPCs = 5,
                     clusters   = 1:8){
-
+  
+  # for some reason, seem to need to explicitly load this library
+  library(quietly = TRUE,"mclust")
+  
   ###############
   # Prepare MSA #
   ###############
 
   # Load sequence MSA
   # if a matrix, can be used straight away
-  # if a data frame, convert to matrix
-  if (is.data.frame(MSA)){
-    MSA       <- as.matrix(t(toupper(as.matrix(MSA))))
-    seq.names <- rownames(MSA)
-    aln.len   <- ncol(MSA)
-  }
   # if raw fasta file, use seqinr to convert to data frame
   if (!is.matrix(MSA)){
     MSA       <- data.frame(seqinr::read.fasta(MSA,set.attributes=FALSE))
   }
+  # if a data frame, convert to matrix
+  if (is.data.frame(MSA)){
+    MSA       <- as.matrix(t(toupper(as.matrix(MSA))))
+  }
+
+  # currrently deal with this issue at later step by replacing NA-only columns with 0s
+      ## remove empty columns (all gaps) since they screw up later steps
+      #if(length(which(colMeans(MSA=="-")==1))>=1){
+      #  emptycolumn <- which(colMeans(MSA=="-")==1)
+      #  MSA <- MSA[,-emptycolumn]
+      #  print(paste("MSA column ",emptycolumn," was empty and was removed"))
+      #}
   
+  seq.names <- rownames(MSA)
+  aln.len   <- ncol(MSA)  
 
   ##############################
   # Prepare residue properties #
@@ -190,14 +200,13 @@ PCA_MSA <- function(MSA,
 
   # Prepare data for PCA 
   toPCA <- numerical.alignment$MSA.scale.wide
+  # If any columns contained gaps only, replace all valuses with 0
+  toPCA[,is.na(colMeans(toPCA))]<-0
   
   if (cys==FALSE){
-    toPCA <- toPCA[,-grep("CYS", colnames(toPCA))]
+    toPCA <- toPCA[,grep("CYS", colnames(toPCA), invert = TRUE)]
   }
   
-  #######
-  # PCA #
-  #######
   # PCA of data with no extra scaling
   PCA.raw <- stats::prcomp(toPCA)
 
@@ -223,14 +232,14 @@ PCA_MSA <- function(MSA,
   
   clusters.min                <- clusters.raw
   clusters.min$classification <- NULL
-  clusters.raw$G              <- NULL
-  clusters.raw$z              <- NULL
-  clusters.raw$call           <- NULL
+  clusters.min$G              <- NULL
+  clusters.min$z              <- NULL
+  clusters.min$call           <- NULL
 
-  seq.space.clusters <- list(classification   = clusters.raw$classification
-                             optimal          = clusters.raw$G
-                             checked          = clusters
-                             likelihoods      = clusters.raw$z
+  seq.space.clusters <- list(classification   = clusters.raw$classification,
+                             optimal          = clusters.raw$G,
+                             checked          = clusters,
+                             likelihoods      = clusters.raw$z,
                              other            = clusters.min)
 
 
@@ -262,7 +271,7 @@ topload <- function(SAPCA,
                     PC = 1,
                     n  = 20){
   
-  names     <- do.call(rbind, strsplit(gsub("\\.",":",rownames(SAPCA$PCA$rotation)), ':'))
+  names     <- do.call(rbind, strsplit(gsub("\\.",":",rownames(SAPCA$seq.space.PCA$loadings)), ':'))
   consensus <- seqinr::consensus(SAPCA$numerical.alignment$MSA)
   combined  <- cbind(names,consensus,SAPCA$seq.space.PCA$loadings[,PC])
   sorted    <- combined[order(sqrt(SAPCA$seq.space.PCA$loadings[,PC]^2),decreasing = TRUE),]
@@ -276,6 +285,17 @@ topload <- function(SAPCA,
 }
 
 
+loadtable <- function(SAPCA,
+                      PC){
+
+    data <- matrix(data     = sqrt(SAPCA$seq.space.PCA$loadings[,PC]^2),
+                 nrow     = length(colnames(SAPCA$numerical.alignment$res.prop)),
+                 byrow    = TRUE,
+                 dimnames = list(colnames(SAPCA$numerical.alignment$res.prop),
+                                   1:SAPCA$numerical.alignment$aln.len))
+  sum  <- colSums(data)
+  data <- rbind(SAPCA$numerical.alignment$MSA["gi303275396mine",], data, sum)  
+}
 
 
 
@@ -289,7 +309,7 @@ topload <- function(SAPCA,
 #########
 plot_modelfit <- function(SAPCA){
   # Model plots     
-  plot(SAPCA$seq.space.clusters$others$BIC) # Using plot on Mclust data reqires numbers to be added afterwards (not sure why)
+  plot(SAPCA$seq.space.clusters$other$BIC) # Using plot on Mclust data reqires numbers to be added afterwards (not sure why)
 }
 
 plot_scree <- function(SAPCA){
@@ -299,6 +319,7 @@ plot_scree <- function(SAPCA){
           ylab = "Variance",                  # y label
           main = "Principal components")      # title
 }
+
 
 plot_3Dclusters <- function(SAPCA,
                             plotPCs = 1:3,
@@ -327,15 +348,28 @@ plot_3Dclusters <- function(SAPCA,
  
   for (NAME in labels){
     SUB = row.names(SAPCA$seq.space.PCA$coordinates)==NAME      # Label based on its row.name
-    text3d(subset(SAPCA$seq.space.PCA$coordinates,subset=SUB), 
-           text      = paste('---',NAME),   # data label text
-           font      = 2,                   # bold
-           color     = "black",             # colour
-           adj       = -0.3)                # offset
+    rgl::text3d(subset(SAPCA$seq.space.PCA$coordinates,subset=SUB), 
+                text      = paste('---',NAME),   # data label text
+                font      = 2,                   # bold
+                color     = "black",             # colour
+                adj       = -0.3)                # offset
   }
   
   # Write html for interactive data
   if (write!=FALSE){
     rglwidget::.writeWebGL(write)                          
   }
+}
+
+
+plot_loadings <- function (SAPCA){
+
+  barnames <- 1:SAPCA$numerical.alignment$aln.len
+  data     <- matrix(data  = sqrt(SAPCA$seq.space.PCA$loadings[,1]^2),
+                     nrow  = length(colnames(SAPCA$numerical.alignment$res.prop)),
+                     byrow = FALSE)
+  
+  barplot(data      = data,
+          names.arg = barnames)
+  
 }
