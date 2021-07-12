@@ -1,7 +1,4 @@
-#########
-# Setup #
-#########
-
+# Also, maybe arc.seq.dist(.load) could be scaled 0-1?
 archetype <- function(SAPCA,
 					  dims    = 3,
 					  cluster = 1){
@@ -23,9 +20,9 @@ archetype <- function(SAPCA,
 	consensus.gaps <- colMeans(subset(SAPCA$numerical.alignment$MSA.num.stack$NOTGAP, subset=SUB))
 
 
-	######################
-	# Residue properties #
-	######################
+	######################.
+	# Residue properties #-------
+	######################.
 
 	# Scale residue properties so that they can be searhed inside a unit circle around archetype properties similarly scaled
 	res.prop.scale <- scale(res.prop)
@@ -33,9 +30,9 @@ archetype <- function(SAPCA,
 	res.avail      <- row.names(res.prop)
 
 
-	######################
-	# Archetype sequence #
-	######################
+	######################.
+  # Archetype sequence #--------
+	######################.
 
 	# Average residue properties of chosen subset
 	arc.prop.num <- array(dim 	   = c(aln.len, 
@@ -54,9 +51,9 @@ archetype <- function(SAPCA,
 	                        scale  = attr(res.prop.scale,"scaled:scale"))
 
 
-	##########################
-	# Loadings to prioritise #
-	##########################
+	##########################.
+	# Loadings to prioritise #--------
+	##########################.
 
 	# Positivised loadings for each property, summed for the number of PCA dimensions of interest
 	arc.load.sum <- matrix(rowSums(sqrt(arc.load^2)),
@@ -65,9 +62,9 @@ archetype <- function(SAPCA,
 										   res.props))
 
 
-	############
-	# Distance #
-	############
+	############.
+	# Distance #------------
+	############.
 
 	# Now we have the following:
 	## properties of avaiable residues (res.prop.scale)
@@ -97,9 +94,9 @@ archetype <- function(SAPCA,
 	}
 
 
-	####################################
-	# Select closest available residue #
-	####################################
+	####################################.
+	# Select closest available residue #-------
+	####################################.
 
 	# for each resuldue in res.dist, which residues has the lowest distance?
 	# ignore those which should be gaps
@@ -119,17 +116,17 @@ archetype <- function(SAPCA,
 	arc.seq.dist     [consensus.gaps<=0.5] <- NA
 	arc.seq.dist.load[consensus.gaps<=0.5] <- NA
 
-	#############
-	# Consensus #
-	#############
+  #############.
+	# Consensus #--------------------
+	#############.
 
 	# Consensus sequence for comparison
 	con.seq.gapped <- seqinr::consensus(subset(SAPCA$numerical.alignment$MSA, subset=SUB))
 	con.seq        <- paste(grep("[^-]",(con.seq.gapped),value=TRUE),collapse="")
 
-	##########
-	# Output #
-	##########
+	##########.
+	# Output #------------
+	##########.
 
 	# Generate output object
 	list(arc.seq          = arc.seq,
@@ -144,5 +141,16 @@ archetype <- function(SAPCA,
 		)
 }
 
+conservation <- function(MSA){
+  MSA[MSA=="-"] <- NA
+  con.seq <- seqinr::consensus(MSA)
+  con.mat <- seqinr::consensus(MSA,method = "profile")
+  con.lvl <- apply(con.mat,2,max)/nrow(MSA)
+  occ     <- colSums(!is.na(MSA))/nrow(MSA)
 
-# Also, maybe arc.seq.dist(.load) could be scaled 0-1?
+  list(consensus    = con.seq ,
+       conservation = con.lvl,
+       occupancy    = occ)
+}
+
+
