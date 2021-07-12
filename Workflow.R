@@ -100,13 +100,9 @@ dev.off()
 saveRDS(SAPCA,file=paste(name,"PCA.RDS",sep="."))
 
 # Export CSV files
-out=NULL
-for(i in 1:3){
-    temp <- topload(SAPCA,PC = i,n = 80)
-    out <- cbind(out,temp[temp[,3]!="NOTGAP",][1:20,])
+for(i in 1:5){
+   write.csv (topload(SAPCA,PC = i,n = 80), file = paste(name,".Loadings.PC",i,".csv",sep=""),row.names = FALSE)
 }
-write.csv (out, file = paste(name,".Loadings.PC.1-3",".csv",sep=""),row.names = FALSE)
-
 
 write.csv (SAPCA$seq.space.PCA$loadings,           file = paste(name,"Loadings.All.csv",sep="."))
 write.csv (SAPCA$seq.space.PCA$coordinates,        file = paste(name,"Coordinates.csv",sep=".")) 

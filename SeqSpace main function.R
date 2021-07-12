@@ -45,7 +45,8 @@ PCA_MSA <- function(MSA,
                     correlation= "pearson"){
 
   # for some reason, seem to need to explicitly load this library
-  suppressMessages(library(quietly = TRUE,"mclust"))
+  library(quietly = TRUE,"mclust")
+
 
   ########################.
   # Perform subfunctions #
@@ -60,7 +61,7 @@ PCA_MSA <- function(MSA,
   message("rotating and projecting sequence space matrix")
   seq.space.PCA <- rotate_seqspace(numerical.alignment = numerical.alignment,
                                    cys                 = cys)
-  message("identifying clusters in sequence space matrix")
+  message("identifying clusters")
     # if no replicates
   if(is.null(bootstrap) && is.null(jackknife)){
     seq.space.clusters <- find_clusters(seq.space.PCA = seq.space.PCA,
@@ -144,8 +145,7 @@ PCA_MSA <- function(MSA,
 
 numericise_MSA <- function(MSA,
                            res.prop,
-                           cys = TRUE){
-
+                           cys){
   seq.names <- rownames(MSA)
   aln.len   <- ncol(MSA)
   res.props <- colnames(res.prop)
@@ -243,7 +243,9 @@ rotate_seqspace <- function(numerical.alignment,
   # If any columns contained gaps only, replace all values with 0
   toPCA[,is.na(colMeans(toPCA))]<-0
 
-
+  if (cys==FALSE){
+    toPCA <- toPCA[,grep("CYS", colnames(toPCA), invert = TRUE)]
+  }
 
   # PCA of data with no extra scaling
   PCA.raw <- stats::prcomp(toPCA)
@@ -478,13 +480,11 @@ topload <- function(SAPCA,
 
 loadingtable <- function(SAPCA,
                          PC        = 1,
-                         seq       = "full",
+                         seq       = seqinr::consensus(SAPCA$numerical.alignment$MSA),
                          magnitude = FALSE){
 
   input <- SAPCA$seq.space.PCA$loadings[,PC]
-  if (seq=="full"){
-    seq <- seqinr::consensus(SAPCA$numerical.alignment$MSA)
-  }
+
   if (magnitude==TRUE){
     input <- sqrt(input^2)
   }
@@ -613,10 +613,10 @@ seq.MSA.add <- function(SAPCA,
   tomsa   <- as.AAstringSet(rbind(as.character(aln.hit),
                                   as.character(seq.d)),
                             degap=TRUE)
-  aln.add <- msa::msa(tomsa,
-                     substitutionMatrix = BLOSUM40,
-                     gapOpening   = 0,
-                     gapExtension = 1)
+  aln.add <- msa(tomsa,
+                 substitutionMatrix = BLOSUM40,
+                 gapOpening   = 0,
+                 gapExtension = 1)
 
   # Has the new sequence introduced exrta gaps into the hit sequence alignement?
   aln.hit.orig         <- as.AAstring(MSA[aln.hit.num,])
@@ -745,7 +745,7 @@ seq.rotate <- function(SAPCA,newseq){
 seq.clust.add <- function(SAPCA,newseq.r){
 
   SAPCA.c  <- mclustrev(SAPCA)
-  newseq.c <- mclust::predict.Mclust(SAPCA.c,newseq.r$seq.rot[,1:SAPCA$call$clusterPCs])
+  newseq.c <- mclust::predict.Mclust(SAPCA.c,newseq.r$seq.rot[,SAPCA$call$clusterPCs])
   newseq.c
 }
 
@@ -861,13 +861,12 @@ read.res.prop <- function(res.prop, cys=TRUE){
     res.prop[ncol(res.prop)+1]         <- c(rep(1,nrow(res.prop)-1),0)
     colnames(res.prop)[ncol(res.prop)] <- "NOTGAP"
   }
-  if (cys==FALSE){
-    res.prop <- res.prop[,grep("CYS", colnames(res.prop), invert = TRUE)]
-  }
   res.prop
 }
 
-read.blosum <- function(file="C:\\Users\\T\\OneDrive\\0-Sequences\\Defensins\\2-PCA\\0-Raw data and scalers\\0 - BLOSUM40.csv"){
+
+
+read.blosum <- function(file="C:\\Users\\T\\OneDrive\\0-Sequences\\2-PCA\\0-Raw data and scalers\\0 - BLOSUM40.csv"){
   BLOSUM40 <- read.csv(file)
   BLOSUM40.names <- BLOSUM40[,1]
   BLOSUM40 <- BLOSUM40[,-1]
