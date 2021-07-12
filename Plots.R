@@ -490,6 +490,9 @@ plot_overlay_3Dtree <- function (SAPCA     = SAPCA,
   if(is.null(tree$edge.length)){
     tree$edge.length <- rep(1,nrow(tree$edge))
   }
+  #remove 0-length edges
+  tree$edge.length[tree$edge.length<=0] <- min(tree$edge.length[tree$edge.length>0])
+  
   
   #ancestral node 3d locations
   if(is.null(ancestors)){ 
