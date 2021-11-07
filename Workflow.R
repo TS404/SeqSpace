@@ -30,6 +30,7 @@ colours<-palette(c("blue",       #1
 name      <- "VPE"
 folder    <- "C:\\Users\\T\\OneDrive\\0-Sequences\\4-Non-defensins\\VPE"
 res.prop1 <- "C:\\Users\\T\\OneDrive\\0-Sequences\\2-PCA\\0-Raw data and scalers\\Amino acid properties.csv"
+# res.prop1 at https://github.com/TS404/SeqSpace/tree/master/data 
 
 ############
 # Analysis #
